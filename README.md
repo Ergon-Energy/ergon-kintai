@@ -3,7 +3,7 @@
 2人の勤務時間とやったことを記録・可視化する勤怠アプリ。Slackの `/kintai` から打刻できます。
 
 - **Slack**：`/kintai in` / `out` / `log` / `status`
-- **カレンダー（トップ）**：2人の勤務を月カレンダーで表示。日付を押すとその日の記録を表示
+- **カレンダー（トップ）**：2人の勤務を月カレンダーで表示。日付を押すとその日の記録を表示・編集・削除
 - **勤怠状況（`/status`）**：2人の稼働状況、期間合計、日ごとの棒グラフ、やったことのタイムライン、画面からの打刻、CSV書き出し
 - **構成**：Next.js 15（App Router）＋ Supabase（Postgres）、Vercel 想定。外部ライブラリは supabase-js のみ
 
@@ -21,7 +21,7 @@
 - `出勤` `退勤` `作業` `状況` の日本語でも打てます。全角の数字・コロン・スペースもOK
 - 時刻を指定して今より未来になる場合は前日とみなします（0:10 に `out 23:50`）
 - 日付をまたぐ勤務は、グラフでは日ごとに分けて集計します
-- 初めて `/kintai` を打った人は自動でメンバー登録されます（名前は Slack のユーザー名。変えたいときは Supabase の `members.name` を編集）
+- 初めて `/kintai` を打った人は自動でメンバー登録されます（名前は Slack プロフィールの氏名。`SLACK_BOT_TOKEN` が未設定ならユーザー名。変えたいときは Supabase の `members.name` を編集）
 
 `/kintai` はどのチャンネルでも使えるので、それぞれの個人チャンネルで打てます。記録は Slack のユーザーごとに残るので、お互いの勤怠は画面で見られます。
 
@@ -36,9 +36,9 @@
 ### 2. Vercel にデプロイ
 
 1. このフォルダを GitHub に push し、Vercel で Import
-2. Environment Variables に `.env.example` の4つを設定
+2. Environment Variables に `.env.example` の6つを設定
    - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`
-   - `SLACK_SIGNING_SECRET`（手順3で取得。先に空でデプロイして後から入れてもOK）
+   - `SLACK_SIGNING_SECRET` / `SLACK_BOT_TOKEN`（手順3で取得。先に空でデプロイして後から入れてもOK）
    - `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`（画面を開くときのID・パスワード。2人で共有）
 3. デプロイして URL を控える（例：`https://ergon-kintai.vercel.app`）
 
@@ -47,7 +47,7 @@
 1. [api.slack.com/apps](https://api.slack.com/apps) → Create New App → **From an app manifest** → ワークスペースを選ぶ
 2. `slack-manifest.yml` の中身を貼り、`YOUR-APP.vercel.app` を手順2のドメインに書き換えて作成
 3. Install to Workspace
-4. Basic Information → App Credentials の **Signing Secret** を Vercel の `SLACK_SIGNING_SECRET` に入れて再デプロイ
+4. Basic Information → App Credentials の **Signing Secret** を Vercel の `SLACK_SIGNING_SECRET` に、OAuth & Permissions の **Bot User OAuth Token** を `SLACK_BOT_TOKEN` に入れて再デプロイ
 5. Slack で `/kintai help` が返ってくれば完了
 
 ## ローカル開発
@@ -78,6 +78,7 @@ lib/
 components/DailyChart.tsx   日ごとの棒グラフ（SVG）
 components/AppHeader.tsx    画面の切り替え
 components/Timeline.tsx     やったことのタイムライン
+components/DayRecords.tsx   カレンダーで選んだ日の記録（編集・削除）
 middleware.ts               画面とCSVの Basic 認証（/api/slack は除外）
 supabase/schema.sql         テーブル定義
 ```
@@ -91,7 +92,7 @@ supabase/schema.sql         テーブル定義
 
 ## まだ無いもの（必要になったら）
 
-- 記録の修正・削除画面（今は Supabase の Table Editor で直す）
+- 編集履歴（ログインが2人共通のため、誰がいつ変更したかは残らない）
 - 休憩の記録（今は `out` → `in` で区切る）
 - 退勤し忘れのリマインド（Slack の Bot トークンを足せば、夜に勤務中の人へDMできる）
 - プロジェクト・タグ別の集計（`log` に `#poc` のようなタグを付けて集計する拡張がしやすい）

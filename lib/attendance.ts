@@ -1,5 +1,6 @@
+import { fetchSlackRealName } from "./slack";
 import { db } from "./supabase";
-import { addDays, dayStart, fmtDuration, fmtTime, splitByDay, type Span } from "./time";
+import { addDays, dayKey, dayStart, fmtDay, fmtDuration, fmtTime, parseLocalInput, splitByDay, toLocalInput, type Span } from "./time";
 
 export type Member = { id: string; name: string; slack_user_id: string | null };
 export type Session = {
@@ -32,15 +33,30 @@ export async function getMembers(): Promise<Member[]> {
   return check(await db().from("members").select("*").order("created_at")) as Member[];
 }
 
-export async function findOrCreateSlackMember(slackUserId: string, name: string): Promise<Member> {
+/**
+ * Slack ユーザーのメンバーを返す。氏名が取れればそれを名前にする。
+ * 名前が Slack のユーザー名のままの人だけ更新するので、手で変えた名前は上書きしない。
+ */
+export async function findOrCreateSlackMember(slackUserId: string, userName: string): Promise<Member> {
   const found = check(
     await db().from("members").select("*").eq("slack_user_id", slackUserId).maybeSingle(),
   ) as Member | null;
-  if (found) return found;
+  if (found && found.name !== userName) return found;
+
+  const realName = await fetchSlackRealName(slackUserId);
+  if (found) {
+    if (!realName || realName === found.name) return found;
+    const { error } = await db().from("members").update({ name: realName }).eq("id", found.id);
+    if (error) {
+      console.warn("members.name の更新に失敗:", error.message); // 打刻は止めない
+      return found;
+    }
+    return { ...found, name: realName };
+  }
   return check(
     await db()
       .from("members")
-      .insert({ slack_user_id: slackUserId, name: name || slackUserId })
+      .insert({ slack_user_id: slackUserId, name: realName || userName || slackUserId })
       .select()
       .single(),
   ) as Member;
@@ -205,4 +221,86 @@ export function segmentsOnDay(sessions: Session[], key: string, now: Date = new 
     out.push({ sessionId: s.id, memberId: s.member_id, label });
   }
   return out;
+}
+
+/** 他の勤務と時間が重なっていれば、その勤務を返す（end が null は勤務中＝終わりなし） */
+export function findOverlap(others: Session[], start: Date, end: Date | null): Session | undefined {
+  return others.find((o) => {
+    const oEnd = o.ended_at ? new Date(o.ended_at).getTime() : Infinity;
+    return new Date(o.started_at).getTime() < (end ? end.getTime() : Infinity) && start.getTime() < oEnd;
+  });
+}
+
+/** 分まで同じ入力なら元の値（秒を含む）を保ち、変更したときだけ置き換える */
+function resolveTime(input: string, original: string | null, label: string): string {
+  if (original && toLocalInput(original) === input) return original;
+  const d = parseLocalInput(input);
+  if (!d) throw new AttendanceError(`${label}の日時を正しく入力してください。`);
+  if (d.getTime() > Date.now() + 60_000) throw new AttendanceError(`${label}に未来の日時は指定できません。`);
+  return d.toISOString();
+}
+
+/** 勤務を編集する。endInput が空なら「勤務中」に戻す */
+export async function updateSession(id: string, startInput: string, endInput: string, note: string): Promise<Session> {
+  const current = check(
+    await db().from("work_sessions").select("*").eq("id", id).maybeSingle(),
+  ) as Session | null;
+  if (!current) throw new AttendanceError("この勤務はすでに削除されています。");
+
+  const startedAt = resolveTime(startInput, current.started_at, "出勤");
+  const endedAt = endInput ? resolveTime(endInput, current.ended_at, "退勤") : null;
+  const start = new Date(startedAt);
+  const end = endedAt ? new Date(endedAt) : null;
+  if (end && end <= start) throw new AttendanceError("退勤は出勤より後の日時にしてください。");
+
+  const others = check(
+    await db()
+      .from("work_sessions")
+      .select("*")
+      .eq("member_id", current.member_id)
+      .neq("id", id)
+      .or(`ended_at.is.null,ended_at.gt."${startedAt}"`),
+  ) as Session[];
+  const clash = findOverlap(others.filter((o) => o.id !== id && o.member_id === current.member_id), start, end);
+  if (clash) {
+    throw new AttendanceError(
+      `${fmtDay(dayKey(new Date(clash.started_at)))} ${fmtTime(clash.started_at)} からの勤務と重なっています。`,
+    );
+  }
+
+  const rows = check(
+    await db()
+      .from("work_sessions")
+      .update({ started_at: startedAt, ended_at: endedAt, note: note.trim() || null })
+      .eq("id", id)
+      .select(),
+  ) as Session[];
+  if (rows.length === 0) throw new AttendanceError("この勤務はすでに削除されています。");
+  return rows[0];
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  check(await db().from("work_sessions").delete().eq("id", id));
+}
+
+export async function updateLog(id: string, atInput: string, content: string): Promise<Log> {
+  if (!content.trim()) throw new AttendanceError("やったことを書いてください。");
+  const current = check(
+    await db().from("activity_logs").select("*").eq("id", id).maybeSingle(),
+  ) as Log | null;
+  if (!current) throw new AttendanceError("この記録はすでに削除されています。");
+  const loggedAt = resolveTime(atInput, current.logged_at, "記録");
+  const rows = check(
+    await db()
+      .from("activity_logs")
+      .update({ logged_at: loggedAt, content: content.trim() })
+      .eq("id", id)
+      .select(),
+  ) as Log[];
+  if (rows.length === 0) throw new AttendanceError("この記録はすでに削除されています。");
+  return rows[0];
+}
+
+export async function deleteLog(id: string): Promise<void> {
+  check(await db().from("activity_logs").delete().eq("id", id));
 }

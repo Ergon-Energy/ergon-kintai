@@ -8,7 +8,8 @@ const PAGES = [
 export function AppHeader({ current }: { current: (typeof PAGES)[number]["id"] }) {
   return (
     <header className="top">
-      <h1>
+      <h1 className="brand">
+        <img src="/logo.png" alt="" width={30} height={29} />
         Ergon <span>勤怠</span>
       </h1>
       <nav className="tabs" aria-label="画面の切り替え">

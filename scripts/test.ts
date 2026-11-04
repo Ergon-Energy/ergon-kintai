@@ -2,16 +2,20 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { parseCommand } from "../lib/command";
-import { segmentsOnDay, summarize, type Member, type Session } from "../lib/attendance";
-import { verifySlackRequest } from "../lib/slack";
-import { addMonths, calendarSpan, dayKey, fmtDuration, isMonthKey, monthSpan, parseClock, periodRange, splitByDay } from "../lib/time";
+import { findOverlap, segmentsOnDay, summarize, type Member, type Session } from "../lib/attendance";
+import { fetchSlackRealName, verifySlackRequest } from "../lib/slack";
+import { addMonths, calendarSpan, dayKey, fmtDuration, isMonthKey, monthSpan, parseClock, parseLocalInput, periodRange, splitByDay, toLocalInput } from "../lib/time";
 
 const jst = (s: string) => new Date(`${s}+09:00`);
 let n = 0;
-const t = (name: string, fn: () => void) => {
-  fn();
-  n++;
-  console.log("✓", name);
+const pending: Promise<void>[] = [];
+const t = (name: string, fn: () => void | Promise<void>) => {
+  pending.push(
+    Promise.resolve(fn()).then(() => {
+      n++;
+      console.log("✓", name);
+    }),
+  );
 };
 
 t("日付キーは日本時間", () => {
@@ -123,4 +127,54 @@ t("カレンダーの表示：日またぎと勤務中", () => {
   assert.equal(segmentsOnDay(forgot, "2026-11-04", now)[0].label, "00:00〜");
 });
 
-console.log(`\n${n} tests passed`);
+t("編集の日時入力は日本時間", () => {
+  assert.equal(toLocalInput(jst("2026-11-04T00:05:30")), "2026-11-04T00:05");
+  assert.equal(parseLocalInput("2026-11-04T09:30")!.toISOString(), jst("2026-11-04T09:30:00").toISOString());
+  assert.equal(parseLocalInput("2026-02-31T09:30"), null);
+  assert.equal(parseLocalInput("2026-11-04T25:00"), null);
+  assert.equal(parseLocalInput(""), null);
+  assert.equal(parseLocalInput("きのう"), null);
+});
+
+t("編集時の勤務の重なり", () => {
+  const base = { member_id: "a", note: null, source: "web" };
+  const others: Session[] = [
+    { ...base, id: "1", started_at: jst("2026-11-04T09:00:00").toISOString(), ended_at: jst("2026-11-04T12:00:00").toISOString() },
+    { ...base, id: "2", started_at: jst("2026-11-04T18:00:00").toISOString(), ended_at: null },
+  ];
+  const at = (h: string) => jst(`2026-11-04T${h}:00`);
+  assert.equal(findOverlap(others, at("11:00"), at("13:00"))?.id, "1");
+  assert.equal(findOverlap(others, at("12:00"), at("18:00")), undefined); // 境目が接するだけならOK
+  assert.equal(findOverlap(others, at("17:00"), at("18:30"))?.id, "2"); // 勤務中と重なる
+  assert.equal(findOverlap(others, at("13:00"), null)?.id, "2"); // 勤務中に戻すと重なる
+  assert.equal(findOverlap(others.slice(0, 1), at("13:00"), null), undefined);
+});
+
+t("Slackの氏名取得", async () => {
+  const json = (body: unknown) => (async () => new Response(JSON.stringify(body))) as unknown as typeof fetch;
+  const profile = { ok: true, user: { profile: { real_name: " 渡辺 テスト " } } };
+  delete process.env.SLACK_BOT_TOKEN;
+  assert.equal(await fetchSlackRealName("U1", json(profile)), null); // トークン未設定
+  process.env.SLACK_BOT_TOKEN = "xoxb-test";
+  const quiet = console.warn;
+  console.warn = () => {};
+  try {
+    assert.equal(await fetchSlackRealName("U1", json(profile)), "渡辺 テスト");
+    assert.equal(await fetchSlackRealName("U1", json({ ok: false, error: "missing_scope" })), null);
+    assert.equal(await fetchSlackRealName("U1", json({ ok: true, user: { profile: { real_name: "" } } })), null);
+    const fail = (async () => {
+      throw new Error("timeout");
+    }) as unknown as typeof fetch;
+    assert.equal(await fetchSlackRealName("U1", fail), null);
+  } finally {
+    console.warn = quiet;
+    delete process.env.SLACK_BOT_TOKEN;
+  }
+});
+
+Promise.all(pending)
+  .then(() => console.log(`\n${n} tests passed`))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

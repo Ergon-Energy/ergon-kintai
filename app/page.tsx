@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
-import { Timeline } from "@/components/Timeline";
+import { DayRecords } from "@/components/DayRecords";
+import { ResultFlash } from "@/components/ResultFlash";
 import {
   describeDuration,
   getMembers,
@@ -11,11 +12,9 @@ import {
 } from "@/lib/attendance";
 import { colorOf } from "@/lib/colors";
 import {
-  addDays,
   addMonths,
   calendarSpan,
   dayKey,
-  dayStart,
   fmtDay,
   fmtDuration,
   fmtHours,
@@ -161,6 +160,7 @@ export default async function Page({
       </section>
 
       <section className="card" id="detail">
+        <ResultFlash ok={sp.ok} err={sp.err} />
         {selected ? (
           <>
             <h2>{fmtDay(selected)}の記録</h2>
@@ -176,14 +176,7 @@ export default async function Page({
                 );
               })}
             </ul>
-            <Timeline
-              members={members}
-              sessions={sessions}
-              logs={logs}
-              span={{ fromDate: dayStart(selected), toDate: dayStart(addDays(selected, 1)) }}
-              showDay={false}
-              emptyText="この日の出勤・退勤・やったことはありません。"
-            />
+            <DayRecords members={members} sessions={sessions} logs={logs} day={selected} month={month} now={now} />
           </>
         ) : (
           <p className="muted">日付を押すと、その日の記録が表示されます。</p>

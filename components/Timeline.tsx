@@ -17,14 +17,12 @@ export function Timeline({
   sessions,
   logs,
   span,
-  showDay = true,
   emptyText,
 }: {
   members: Member[];
   sessions: Session[];
   logs: Log[];
   span: Pick<Span, "fromDate" | "toDate">;
-  showDay?: boolean;
   emptyText: string;
 }) {
   const inSpan = (d: Date) => d >= span.fromDate && d < span.toDate;
@@ -59,7 +57,7 @@ export function Timeline({
     <>
       {dayList.map((d) => (
         <div key={d} className="day">
-          {showDay && <h3>{fmtDay(d)}</h3>}
+          <h3>{fmtDay(d)}</h3>
           <ol>
             {byDay.get(d)!.map((e, i) => (
               <li key={i} className={e.kind}>

@@ -31,5 +31,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api/slack|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api/slack|_next/static|_next/image|favicon.ico|icon.png|logo.png).*)"],
 };

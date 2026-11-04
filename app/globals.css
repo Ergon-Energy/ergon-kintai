@@ -34,6 +34,8 @@ body {
 main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
 h1 { font-size: 22px; margin: 0; letter-spacing: 0.02em; }
 h1 span { color: var(--muted); font-weight: 500; }
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand img { display: block; border-radius: 7px; }
 h2 { font-size: 15px; margin: 0 0 12px; }
 h3 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
 code { background: var(--line); padding: 1px 6px; border-radius: 4px; }
@@ -130,7 +132,29 @@ li.out .what b { color: var(--muted); }
 .day-totals i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
 .day-totals b { margin-left: 8px; font-variant-numeric: tabular-nums; }
 #detail { scroll-margin-top: 12px; }
-#detail .day { padding-top: 8px; }
+#detail .flash { scroll-margin-top: 12px; }
+
+.records { margin-top: 14px; }
+.records h3 { margin-bottom: 2px; }
+.record { padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.record-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.record-main time, .record-main .span { font-variant-numeric: tabular-nums; }
+.record-main .span { font-weight: 600; }
+.record-main .sub { color: var(--muted); font-size: 13px; }
+.record-main .body { flex-basis: 100%; white-space: pre-wrap; }
+.edit { margin-top: 2px; }
+.edit > summary, .confirm > summary { display: inline-block; padding: 3px 0; color: var(--accent); font-size: 13px; cursor: pointer; list-style: none; }
+.edit > summary::-webkit-details-marker, .confirm > summary::-webkit-details-marker { display: none; }
+.edit[open] { margin: 6px 0 4px; padding: 10px 12px 12px; background: var(--bg); border-radius: 8px; }
+.edit-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.edit-form label { display: flex; flex-direction: column; gap: 3px; min-width: 0; color: var(--muted); font-size: 12px; }
+.edit-form input, .edit-form textarea { width: 100%; min-width: 0; font: inherit; font-size: 14px; color: var(--text); background: var(--card); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.edit-form .full { grid-column: 1 / -1; }
+.edit-form button { justify-self: start; }
+.confirm { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.confirm > summary { color: var(--err); }
+.confirm p { margin: 4px 0 8px; color: var(--muted); font-size: 13px; }
+button.danger { background: var(--err); border-color: var(--err); color: #fff; }
 
 @media (max-width: 640px) {
   .calendar { padding: 12px 8px; }
@@ -140,4 +164,5 @@ li.out .what b { color: var(--muted); }
   .cal-entry .hours { display: inline; }
   .cal-entry .badge { width: 14px; height: 14px; font-size: 9px; }
   .now-item .month-total { margin-left: 0; }
+  .edit-form { grid-template-columns: minmax(0, 1fr); }
 }

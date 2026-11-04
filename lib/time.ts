@@ -173,3 +173,17 @@ export function calendarSpan(month: string): Span {
   const last = addDays(to, -1);
   return makeSpan(addDays(from, -((weekday(from) + 6) % 7)), addDays(last, 7 - ((weekday(last) + 6) % 7)));
 }
+
+/** <input type="datetime-local"> 用の値（日本時間・分まで） */
+export function toLocalInput(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return `${dayKey(date)}T${fmtTime(date)}`;
+}
+
+/** datetime-local の値を日本時間として解釈する。不正な値は null */
+export function parseLocalInput(s: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) return null;
+  const minute = s.slice(0, 16);
+  const d = new Date(`${minute}:00+09:00`);
+  return !Number.isNaN(d.getTime()) && toLocalInput(d) === minute ? d : null;
+}
