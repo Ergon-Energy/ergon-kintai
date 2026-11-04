@@ -55,7 +55,7 @@ export function DailyChart({
                   width={Math.max(1, barW - 2)}
                   height={y(0) - y(h)}
                   rx={2}
-                  fill={colors[j % colors.length]}
+                  style={{ fill: colors[j % colors.length] }}
                 >
                   <title>{`${d} ${s.member.name}: ${fmtDuration(ms)}（${fmtHours(ms)}h）`}</title>
                 </rect>
@@ -66,7 +66,7 @@ export function DailyChart({
                 x={PAD.left + i * groupW + groupW / 2}
                 y={H - 10}
                 textAnchor="middle"
-                className={`axis${wd === 0 || wd === 6 ? " weekend" : ""}${d === today ? " today" : ""}`}
+                className={`axis x${wd === 0 || wd === 6 ? " weekend" : ""}${d === today ? " today" : ""}`}
               >
                 {Number(d.slice(8))}
               </text>

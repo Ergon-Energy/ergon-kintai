@@ -5,6 +5,7 @@
 - **Slack**：`/kintai in` / `out` / `log` / `status`
 - **カレンダー（トップ）**：2人の勤務を月カレンダーで表示。日付を押すとその日の記録を表示・編集・削除
 - **勤怠状況（`/status`）**：2人の稼働状況、期間合計、日ごとの棒グラフ、やったことのタイムライン、画面からの打刻、CSV書き出し
+- **デザイン**：Ergon のデザインシステムの配色・書体に準拠。OS の設定に合わせて Carbon（ダーク）と Paper（ライト）が切り替わる
 - **構成**：Next.js 15（App Router）＋ Supabase（Postgres）、Vercel 想定。外部ライブラリは supabase-js のみ
 
 ## Slackでの使い方

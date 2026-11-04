@@ -10,7 +10,7 @@ import {
   segmentsOnDay,
   summarize,
 } from "@/lib/attendance";
-import { colorOf } from "@/lib/colors";
+import { colorOf, memberVars } from "@/lib/colors";
 import {
   addMonths,
   calendarSpan,
@@ -70,7 +70,7 @@ export default async function Page({
         {monthly.map((s) => {
           const o = open.find((x) => x.member_id === s.member.id);
           return (
-            <div key={s.member.id} className="now-item" style={{ "--c": colorOf(members, s.member.id) } as React.CSSProperties}>
+            <div key={s.member.id} className="now-item" style={memberVars(members, s.member.id)}>
               <span className="badge" aria-hidden="true">
                 {s.member.name.slice(0, 1).toUpperCase()}
               </span>
@@ -138,7 +138,7 @@ export default async function Page({
                     <span
                       key={m.id}
                       className="cal-entry"
-                      style={{ "--c": colorOf(members, m.id) } as React.CSSProperties}
+                      style={memberVars(members, m.id)}
                       title={`${m.name}: ${fmtDuration(dailyOf(m.id, d))}`}
                     >
                       <span className="badge" aria-hidden="true">

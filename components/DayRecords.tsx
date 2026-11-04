@@ -1,6 +1,6 @@
 import { removeLog, removeSession, saveLog, saveSession } from "@/app/actions";
 import { describeDuration, segmentsOnDay, type Log, type Member, type Session } from "@/lib/attendance";
-import { colorOf } from "@/lib/colors";
+import { memberVars } from "@/lib/colors";
 import { dayKey, fmtTime, toLocalInput } from "@/lib/time";
 
 function Hidden({ id, month, day }: { id: string; month: string; day: string }) {
@@ -34,7 +34,7 @@ export function DayRecords({
   const tag = (memberId: string) => {
     const m = members.find((x) => x.id === memberId);
     return (
-      <span className="tag" style={{ background: colorOf(members, memberId) }}>
+      <span className="tag" style={memberVars(members, memberId)}>
         {m?.name ?? "不明"}
       </span>
     );
@@ -96,7 +96,7 @@ export function DayRecords({
       )}
 
       {dayLogs.length > 0 && (
-        <div style={{ marginTop: segments.length > 0 ? 14 : 0 }}>
+        <div className="records-logs">
           <h3>やったこと</h3>
           {dayLogs.map((l) => (
             <div key={l.id} className="record">

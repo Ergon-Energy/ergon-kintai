@@ -10,7 +10,7 @@ import {
   getRange,
   summarize,
 } from "@/lib/attendance";
-import { colorOf as memberColor } from "@/lib/colors";
+import { colorOf as memberColor, memberVars } from "@/lib/colors";
 import {
   PERIODS,
   fmtDay,
@@ -76,7 +76,7 @@ export default async function Page({
             {summary.map((s) => {
               const o = open.find((x) => x.member_id === s.member.id);
               return (
-                <article key={s.member.id} className="card member" style={{ "--c": colorOf(s.member.id) } as React.CSSProperties}>
+                <article key={s.member.id} className="card member" style={memberVars(members, s.member.id)}>
                   <div className="who">
                     <span className={`dot${o ? " live" : ""}`} />
                     <strong>{s.member.name}</strong>
