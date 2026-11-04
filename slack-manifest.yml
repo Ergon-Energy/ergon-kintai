@@ -1,0 +1,23 @@
+# api.slack.com/apps → Create New App → From an app manifest に貼り付け
+# url の YOUR-APP をデプロイ先のドメインに置き換えてください
+display_information:
+  name: Ergon勤怠
+  description: 出勤・退勤・やったことの記録
+features:
+  bot_user:
+    display_name: kintai
+    always_online: false
+  slash_commands:
+    - command: /kintai
+      url: https://YOUR-APP.vercel.app/api/slack/command
+      description: 出勤・退勤・やったことを記録
+      usage_hint: "in [9:30] [メモ] | out [やったこと] | log <内容> | status"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - commands
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
