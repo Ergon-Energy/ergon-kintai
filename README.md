@@ -3,7 +3,8 @@
 2人の勤務時間とやったことを記録・可視化する勤怠アプリ。Slackの `/kintai` から打刻できます。
 
 - **Slack**：`/kintai in` / `out` / `log` / `status`
-- **画面**：2人の稼働状況、期間合計、日ごとの棒グラフ、やったことのタイムライン、画面からの打刻、CSV書き出し
+- **カレンダー（トップ）**：2人の勤務を月カレンダーで表示。日付を押すとその日の記録を表示
+- **勤怠状況（`/status`）**：2人の稼働状況、期間合計、日ごとの棒グラフ、やったことのタイムライン、画面からの打刻、CSV書き出し
 - **構成**：Next.js 15（App Router）＋ Supabase（Postgres）、Vercel 想定。外部ライブラリは supabase-js のみ
 
 ## Slackでの使い方
@@ -22,7 +23,7 @@
 - 日付をまたぐ勤務は、グラフでは日ごとに分けて集計します
 - 初めて `/kintai` を打った人は自動でメンバー登録されます（名前は Slack のユーザー名。変えたいときは Supabase の `members.name` を編集）
 
-`#勤怠` のようなチャンネルを作って2人でそこで打つと、お互いの出退勤が流れて見えます。
+`/kintai` はどのチャンネルでも使えるので、それぞれの個人チャンネルで打てます。記録は Slack のユーザーごとに残るので、お互いの勤怠は画面で見られます。
 
 ## セットアップ（30分くらい）
 
@@ -64,7 +65,8 @@ Slack からローカルを叩くときは `ngrok http 3000` などで公開URL�
 
 ```
 app/
-  page.tsx                  ダッシュボード（期間：今週/先週/今月/先月）
+  page.tsx                  カレンダー（トップ）
+  status/page.tsx           勤怠状況（期間：今週/先週/今月/先月）
   actions.ts                画面からの打刻（Server Action）
   api/slack/command/route.ts  /kintai の受け口（署名検証あり）
   api/export/route.ts       CSV書き出し（Excel向けBOM付き）
@@ -74,6 +76,8 @@ lib/
   time.ts                   日本時間の日付計算
   slack.ts                  Slack署名検証
 components/DailyChart.tsx   日ごとの棒グラフ（SVG）
+components/AppHeader.tsx    画面の切り替え
+components/Timeline.tsx     やったことのタイムライン
 middleware.ts               画面とCSVの Basic 認証（/api/slack は除外）
 supabase/schema.sql         テーブル定義
 ```

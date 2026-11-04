@@ -1,5 +1,5 @@
 import { db } from "./supabase";
-import { fmtDuration, fmtTime, splitByDay, type Range } from "./time";
+import { addDays, dayStart, fmtDuration, fmtTime, splitByDay, type Span } from "./time";
 
 export type Member = { id: string; name: string; slack_user_id: string | null };
 export type Session = {
@@ -117,7 +117,7 @@ export async function addLog(memberId: string, content: string, source: Source) 
 }
 
 /** 期間と重なる勤務と、期間内のやったことを取得 */
-export async function getRange(range: Range): Promise<{ sessions: Session[]; logs: Log[] }> {
+export async function getRange(range: Span): Promise<{ sessions: Session[]; logs: Log[] }> {
   const from = range.fromDate.toISOString();
   const to = range.toDate.toISOString();
   const [sessions, logs] = await Promise.all([
@@ -150,7 +150,7 @@ export function summarize(
   members: Member[],
   sessions: Session[],
   logs: Log[],
-  range: Range,
+  range: Span,
   now: Date = new Date(),
 ): MemberSummary[] {
   return members.map((member) => {
@@ -181,4 +181,28 @@ export function summarize(
 export function describeDuration(s: Session, now: Date = new Date()): string {
   const end = s.ended_at ? new Date(s.ended_at) : now;
   return fmtDuration(end.getTime() - new Date(s.started_at).getTime());
+}
+
+export type DaySegment = {
+  sessionId: string;
+  memberId: string;
+  /** "09:30–18:10" / 日をまたぐ場合 "22:00–24:00" / 勤務中 "09:30〜" */
+  label: string;
+};
+
+/** その日（日本時間）に重なる勤務を、日の範囲に切り詰めて返す */
+export function segmentsOnDay(sessions: Session[], key: string, now: Date = new Date()): DaySegment[] {
+  const dayFrom = dayStart(key).getTime();
+  const dayTo = dayStart(addDays(key, 1)).getTime();
+  const out: DaySegment[] = [];
+  for (const s of sessions) {
+    const start = Math.max(new Date(s.started_at).getTime(), dayFrom);
+    const end = Math.min(s.ended_at ? new Date(s.ended_at).getTime() : now.getTime(), dayTo);
+    if (end <= start) continue;
+    const from = fmtTime(new Date(start));
+    const running = !s.ended_at && now.getTime() < dayTo;
+    const label = running ? `${from}〜` : `${from}–${end === dayTo ? "24:00" : fmtTime(new Date(end))}`;
+    out.push({ sessionId: s.id, memberId: s.member_id, label });
+  }
+  return out;
 }

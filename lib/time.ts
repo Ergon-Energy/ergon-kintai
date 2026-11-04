@@ -101,14 +101,15 @@ export function isPeriodId(v: unknown): v is PeriodId {
   return PERIODS.some((p) => p.id === v);
 }
 
-export type Range = {
-  id: PeriodId;
+export type Span = {
   from: string; // 含む
   to: string; // 含まない
   days: string[];
   fromDate: Date;
   toDate: Date;
 };
+
+export type Range = Span & { id: PeriodId };
 
 /** 週は月曜はじまり */
 export function periodRange(id: PeriodId, now: Date = new Date()): Range {
@@ -134,4 +135,41 @@ export function periodRange(id: PeriodId, now: Date = new Date()): Range {
   const days: string[] = [];
   for (let k = from; k < to; k = addDays(k, 1)) days.push(k);
   return { id, from, to, days, fromDate: dayStart(from), toDate: dayStart(to) };
+}
+
+function makeSpan(from: string, to: string): Span {
+  const days: string[] = [];
+  for (let k = from; k < to; k = addDays(k, 1)) days.push(k);
+  return { from, to, days, fromDate: dayStart(from), toDate: dayStart(to) };
+}
+
+/** 月キー "YYYY-MM"（日本時間） */
+export function monthKey(now: Date = new Date()): string {
+  return dayKey(now).slice(0, 7);
+}
+
+export function isMonthKey(v: unknown): v is string {
+  return typeof v === "string" && /^20\d{2}-(0[1-9]|1[0-2])$/.test(v);
+}
+
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const total = y * 12 + (m - 1) + n;
+  return `${Math.floor(total / 12)}-${pad((total % 12) + 1)}`;
+}
+
+export function fmtMonth(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return `${y}年${m}月`;
+}
+
+export function monthSpan(month: string): Span {
+  return makeSpan(`${month}-01`, `${addMonths(month, 1)}-01`);
+}
+
+/** カレンダーに並べる範囲（その月を含む、月曜はじまりの週単位） */
+export function calendarSpan(month: string): Span {
+  const { from, to } = monthSpan(month);
+  const last = addDays(to, -1);
+  return makeSpan(addDays(from, -((weekday(from) + 6) % 7)), addDays(last, 7 - ((weekday(last) + 6) % 7)));
 }

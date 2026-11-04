@@ -2,9 +2,9 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { parseCommand } from "../lib/command";
-import { summarize, type Member, type Session } from "../lib/attendance";
+import { segmentsOnDay, summarize, type Member, type Session } from "../lib/attendance";
 import { verifySlackRequest } from "../lib/slack";
-import { dayKey, fmtDuration, parseClock, periodRange, splitByDay } from "../lib/time";
+import { addMonths, calendarSpan, dayKey, fmtDuration, isMonthKey, monthSpan, parseClock, periodRange, splitByDay } from "../lib/time";
 
 const jst = (s: string) => new Date(`${s}+09:00`);
 let n = 0;
@@ -89,6 +89,38 @@ t("Slack署名検証", () => {
   assert.equal(verifySlackRequest(body, h(sig)), true);
   assert.equal(verifySlackRequest(body + "x", h(sig)), false);
   assert.equal(verifySlackRequest(body, h(sig, String(Number(ts) - 600))), false);
+});
+
+t("カレンダーの範囲（月曜はじまり・週単位）", () => {
+  const nov = calendarSpan("2026-11"); // 11/1 は日曜、11/30 は月曜
+  assert.equal(nov.from, "2026-10-26");
+  assert.equal(nov.to, "2026-12-07");
+  assert.equal(nov.days.length, 42);
+  assert.equal(calendarSpan("2027-02").days.length, 28); // 2027/2/1 は月曜、2/28 は日曜
+  assert.equal(monthSpan("2026-12").to, "2027-01-01");
+  assert.equal(addMonths("2026-12", 1), "2027-01");
+  assert.equal(addMonths("2027-01", -1), "2026-12");
+  assert.equal(isMonthKey("2026-11"), true);
+  assert.equal(isMonthKey("2026-13"), false);
+  assert.equal(isMonthKey(undefined), false);
+});
+
+t("カレンダーの表示：日またぎと勤務中", () => {
+  const now = jst("2026-11-04T12:00:00");
+  const base = { member_id: "a", note: null, source: "web" };
+  const sessions: Session[] = [
+    { ...base, id: "1", started_at: jst("2026-11-02T22:00:00").toISOString(), ended_at: jst("2026-11-03T02:30:00").toISOString() },
+    { ...base, id: "2", started_at: jst("2026-11-04T09:00:00").toISOString(), ended_at: null },
+  ];
+  const labels = (k: string) => segmentsOnDay(sessions, k, now).map((x) => x.label);
+  assert.deepEqual(labels("2026-11-02"), ["22:00–24:00"]);
+  assert.deepEqual(labels("2026-11-03"), ["00:00–02:30"]);
+  assert.deepEqual(labels("2026-11-04"), ["09:00〜"]);
+  assert.deepEqual(labels("2026-11-05"), []);
+  // 退勤し忘れは、過去の日では 24:00 まで、今日は勤務中として表示
+  const forgot: Session[] = [{ ...base, id: "3", started_at: jst("2026-11-03T20:00:00").toISOString(), ended_at: null }];
+  assert.equal(segmentsOnDay(forgot, "2026-11-03", now)[0].label, "20:00–24:00");
+  assert.equal(segmentsOnDay(forgot, "2026-11-04", now)[0].label, "00:00〜");
 });
 
 console.log(`\n${n} tests passed`);

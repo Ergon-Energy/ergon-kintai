@@ -35,5 +35,5 @@ export async function punch(formData: FormData) {
     msg = e.message;
   }
   const q = new URLSearchParams({ period, [ok ? "ok" : "err"]: msg });
-  redirect(`/?${q}`);
+  redirect(`/status?${q}`);
 }
