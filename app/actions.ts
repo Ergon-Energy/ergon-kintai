@@ -11,7 +11,7 @@ import {
   updateLog,
   updateSession,
 } from "@/lib/attendance";
-import { createTask, deleteTask, isTaskStatus, setTaskStatus, statusLabel, updateTask } from "@/lib/tasks";
+import { createTask, deleteTask, isTaskStatus, setTaskStatus, statusLabel, updateTask, type TaskInput } from "@/lib/tasks";
 import { dayKey, parseClock } from "@/lib/time";
 
 /** 画面からの打刻。結果はクエリ文字列で画面に戻す */
@@ -94,10 +94,12 @@ export async function removeLog(f: FormData) {
   await editAndReturn(f, "やったことを削除しました", () => deleteLog(field(f, "id")));
 }
 
-/** タスクの操作を実行し、絞り込みを保ったまま結果を付けてタスク画面に戻す */
+/** タスクの操作を実行し、絞り込みや開いている行を保ったまま結果を付けて元の画面に戻す */
 async function taskAndReturn(f: FormData, okMsg: string, work: () => Promise<void>) {
   const q = new URLSearchParams();
   if (field(f, "filter")) q.set("member", field(f, "filter"));
+  if (field(f, "edit")) q.set("edit", field(f, "edit"));
+  const path = field(f, "back") === "wbs" ? "/wbs" : "/tasks";
   try {
     await work();
     q.set("ok", okMsg);
@@ -105,13 +107,15 @@ async function taskAndReturn(f: FormData, okMsg: string, work: () => Promise<voi
     if (!(e instanceof AttendanceError)) throw e;
     q.set("err", e.message);
   }
-  redirect(`/tasks?${q}`);
+  redirect(`${path}?${q}`);
 }
 
-const taskInput = (f: FormData) => ({
+const taskInput = (f: FormData): TaskInput => ({
   title: field(f, "title"),
   note: field(f, "note"),
+  parentId: field(f, "parent"),
   assigneeId: field(f, "assignee"),
+  start: field(f, "start"),
   due: field(f, "due"),
 });
 

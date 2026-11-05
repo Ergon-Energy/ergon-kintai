@@ -1,6 +1,7 @@
 import { AttendanceError, check } from "./attendance";
 import { db } from "./supabase";
-import { addDays, dayKey, dayStart, fmtDay } from "./time";
+import { addDays, dayKey, dayStart, diffDays, fmtDay } from "./time";
+import { buildWbs, leafTasks, parentChoices } from "./wbs";
 
 export const TASK_STATUSES = [
   { id: "todo", label: "未着手" },
@@ -14,8 +15,10 @@ export type Task = {
   id: string;
   title: string;
   note: string | null;
+  parent_id: string | null;
   assignee_id: string | null;
   status: TaskStatus;
+  start_date: string | null; // "YYYY-MM-DD"
   due_date: string | null; // "YYYY-MM-DD"
   completed_at: string | null;
   created_at: string;
@@ -32,12 +35,12 @@ export function statusLabel(status: TaskStatus): string {
   return TASK_STATUSES.find((s) => s.id === status)!.label;
 }
 
-/** 空欄は期限なし（null）。存在しない日付はエラー */
-export function parseDueDate(input: string): string | null {
+/** 空欄は日付なし（null）。存在しない日付はエラー */
+export function parseTaskDate(input: string, label: string): string | null {
   if (!input) return null;
   const d = dayStart(input);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input) || Number.isNaN(d.getTime()) || dayKey(d) !== input) {
-    throw new AttendanceError("期限の日付を正しく入力してください。");
+    throw new AttendanceError(`${label}の日付を正しく入力してください。`);
   }
   return input;
 }
@@ -53,8 +56,7 @@ export function dueLabel(task: Task, today: string): string | null {
     if (task.due_date === today) return "今日まで";
     if (task.due_date === addDays(today, 1)) return "明日まで";
     if (task.due_date < today) {
-      const days = Math.round((dayStart(today).getTime() - dayStart(task.due_date).getTime()) / 86_400_000);
-      return `${fmtDay(task.due_date)}まで（${days}日超過）`;
+      return `${fmtDay(task.due_date)}まで（${diffDays(task.due_date, today)}日超過）`;
     }
   }
   return `${fmtDay(task.due_date)}まで`;
@@ -73,6 +75,14 @@ export function sortTasks(tasks: Task[]): Task[] {
   });
 }
 
+/** ボードに出すタスク。子を持つタスクと、古い完了タスクは出さない */
+export function boardTasks(tasks: Task[], now: Date = new Date()): Task[] {
+  const since = now.getTime() - DONE_VISIBLE_DAYS * 86_400_000;
+  return leafTasks(tasks).filter(
+    (t) => t.status !== "done" || (t.completed_at !== null && new Date(t.completed_at).getTime() >= since),
+  );
+}
+
 export type TaskStats = { open: number; overdue: number; doneThisWeek: number };
 
 export function taskStats(tasks: Task[], today: string, weekStart: Date): TaskStats {
@@ -87,32 +97,55 @@ export function taskStats(tasks: Task[], today: string, weekStart: Date): TaskSt
 
 const GONE = "このタスクはすでに削除されています。";
 
-/** 未完了のすべてと、直近の完了を取得 */
-export async function getTasks(now: Date = new Date()): Promise<Task[]> {
-  const since = new Date(now.getTime() - DONE_VISIBLE_DAYS * 86_400_000).toISOString();
-  return check(
-    await db().from("tasks").select("*").or(`status.neq.done,completed_at.gte."${since}"`),
-  ) as Task[];
+export async function getTasks(): Promise<Task[]> {
+  return check(await db().from("tasks").select("*")) as Task[];
 }
 
-type TaskInput = { title: string; note?: string; assigneeId: string; due: string };
+export type TaskInput = {
+  title: string;
+  note: string;
+  parentId: string;
+  assigneeId: string;
+  start: string;
+  due: string;
+};
 
-function toRow({ title, note, assigneeId, due }: TaskInput) {
+function toRow({ title, note, parentId, assigneeId, start, due }: TaskInput) {
   if (!title.trim()) throw new AttendanceError("タスク名を書いてください。");
+  const start_date = parseTaskDate(start, "開始");
+  const due_date = parseTaskDate(due, "期限");
+  if (start_date && due_date && start_date > due_date) {
+    throw new AttendanceError("期限は開始より後の日付にしてください。");
+  }
   return {
     title: title.trim(),
-    note: note?.trim() || null,
+    note: note.trim() || null,
+    parent_id: parentId || null,
     assignee_id: assigneeId || null,
-    due_date: parseDueDate(due),
+    start_date,
+    due_date,
   };
 }
 
+/** 親が消えていないか、自分や配下を親にしていないかを確かめる */
+async function assertParent(parentId: string, id: string | null) {
+  if (!parentId) return;
+  const choices = parentChoices(buildWbs(await getTasks()), id);
+  if (!choices.some((r) => r.task.id === parentId)) {
+    throw new AttendanceError("このタスクは親にできません。選び直してください。");
+  }
+}
+
 export async function createTask(input: TaskInput): Promise<void> {
-  check(await db().from("tasks").insert(toRow(input)));
+  const row = toRow(input);
+  await assertParent(input.parentId, null);
+  check(await db().from("tasks").insert(row));
 }
 
 export async function updateTask(id: string, input: TaskInput): Promise<void> {
-  const rows = check(await db().from("tasks").update(toRow(input)).eq("id", id).select()) as Task[];
+  const row = toRow(input);
+  await assertParent(input.parentId, id);
+  const rows = check(await db().from("tasks").update(row).eq("id", id).select()) as Task[];
   if (rows.length === 0) throw new AttendanceError(GONE);
 }
 
@@ -128,6 +161,7 @@ export async function setTaskStatus(id: string, status: string, now: Date = new 
   if (rows.length === 0) throw new AttendanceError(GONE);
 }
 
+/** 配下のタスクも一緒に消える（DBの on delete cascade） */
 export async function deleteTask(id: string): Promise<void> {
   check(await db().from("tasks").delete().eq("id", id));
 }

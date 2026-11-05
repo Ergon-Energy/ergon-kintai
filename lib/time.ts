@@ -31,6 +31,11 @@ export function addDays(key: string, n: number): string {
   return dayKey(new Date(dayStart(key).getTime() + n * DAY));
 }
 
+/** from から to までの日数（to が前なら負） */
+export function diffDays(from: string, to: string): number {
+  return Math.round((dayStart(to).getTime() - dayStart(from).getTime()) / DAY);
+}
+
 /** 0=日 … 6=土 */
 export function weekday(key: string): number {
   return new Date(`${key}T12:00:00+09:00`).getUTCDay();

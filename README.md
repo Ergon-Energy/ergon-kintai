@@ -6,6 +6,7 @@
 - **カレンダー（トップ）**：2人の勤務を月カレンダーで表示。日付を押すとその日の記録を表示・編集・削除
 - **勤怠状況（`/status`）**：2人の稼働状況、期間合計、日ごとの棒グラフ、やったことのタイムライン、画面からの打刻、CSV書き出し
 - **タスク（`/tasks`）**：未着手・進行中・完了のボードで進捗を管理。担当と期限を付けられ、期限切れは赤で表示。担当で絞り込み可能。完了の列は直近30日分を表示
+- **WBS（`/wbs`）**：タスクを親子の階層にした表とガントチャートを並べて表示。親の期間と進捗は配下のタスクから自動で集計。子を持つタスクはまとめとして扱い、ボードと件数には出さない
 - **デザイン**：Ergon のデザインシステムの配色・書体に準拠。OS の設定に合わせて Carbon（ダーク）と Paper（ライト）が切り替わる
 - **構成**：Next.js 15（App Router）＋ Supabase（Postgres）、Vercel 想定。外部ライブラリは supabase-js のみ
 
@@ -72,12 +73,14 @@ app/
   page.tsx                  カレンダー（トップ）
   status/page.tsx           勤怠状況（期間：今週/先週/今月/先月）
   tasks/page.tsx            タスクのボード
+  wbs/page.tsx              WBS・ガントチャート
   actions.ts                画面からの打刻・編集・タスク操作（Server Action）
   api/slack/command/route.ts  /kintai の受け口（署名検証あり）
   api/export/route.ts       CSV書き出し（Excel向けBOM付き）
 lib/
   attendance.ts             打刻・取得・集計
   tasks.ts                  タスクの取得・更新・並び順・集計
+  wbs.ts                    WBSの階層・番号・集計、ガントの表示範囲
   command.ts                /kintai のテキスト解釈
   time.ts                   日本時間の日付計算
   slack.ts                  Slack署名検証
@@ -85,7 +88,9 @@ components/DailyChart.tsx   日ごとの棒グラフ（SVG）
 components/AppHeader.tsx    画面の切り替え
 components/Timeline.tsx     やったことのタイムライン
 components/DayRecords.tsx   カレンダーで選んだ日の記録（編集・削除）
-components/TaskCard.tsx     タスクのカード（状態の移動・編集・削除）
+components/TaskCard.tsx     ボードのカード
+components/TaskControls.tsx タスクの状態移動・編集・削除（ボードとWBSで共用）
+components/WbsGantt.tsx     WBSの表とガントチャート
 middleware.ts               画面とCSVの Basic 認証（/api/slack は除外）
 supabase/schema.sql         テーブル定義
 ```
