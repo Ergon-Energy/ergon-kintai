@@ -11,6 +11,7 @@ import {
   updateLog,
   updateSession,
 } from "@/lib/attendance";
+import { createTask, deleteTask, isTaskStatus, setTaskStatus, statusLabel, updateTask } from "@/lib/tasks";
 import { dayKey, parseClock } from "@/lib/time";
 
 /** 画面からの打刻。結果はクエリ文字列で画面に戻す */
@@ -91,4 +92,43 @@ export async function saveLog(f: FormData) {
 
 export async function removeLog(f: FormData) {
   await editAndReturn(f, "やったことを削除しました", () => deleteLog(field(f, "id")));
+}
+
+/** タスクの操作を実行し、絞り込みを保ったまま結果を付けてタスク画面に戻す */
+async function taskAndReturn(f: FormData, okMsg: string, work: () => Promise<void>) {
+  const q = new URLSearchParams();
+  if (field(f, "filter")) q.set("member", field(f, "filter"));
+  try {
+    await work();
+    q.set("ok", okMsg);
+  } catch (e) {
+    if (!(e instanceof AttendanceError)) throw e;
+    q.set("err", e.message);
+  }
+  redirect(`/tasks?${q}`);
+}
+
+const taskInput = (f: FormData) => ({
+  title: field(f, "title"),
+  note: field(f, "note"),
+  assigneeId: field(f, "assignee"),
+  due: field(f, "due"),
+});
+
+export async function addTask(f: FormData) {
+  await taskAndReturn(f, "タスクを追加しました", () => createTask(taskInput(f)));
+}
+
+export async function saveTask(f: FormData) {
+  await taskAndReturn(f, "タスクを更新しました", () => updateTask(field(f, "id"), taskInput(f)));
+}
+
+export async function moveTask(f: FormData) {
+  const status = field(f, "status");
+  const msg = isTaskStatus(status) ? `「${statusLabel(status)}」に移しました` : "";
+  await taskAndReturn(f, msg, () => setTaskStatus(field(f, "id"), status));
+}
+
+export async function removeTask(f: FormData) {
+  await taskAndReturn(f, "タスクを削除しました", () => deleteTask(field(f, "id")));
 }

@@ -24,7 +24,7 @@ export type Source = "slack" | "web";
 /** 利用者に見せてよいエラー（打刻の重複など） */
 export class AttendanceError extends Error {}
 
-function check<T>(res: { data: T; error: { message: string } | null }): T {
+export function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
   return res.data;
 }
