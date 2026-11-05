@@ -236,12 +236,91 @@ main > .flash { scroll-margin-top: 12px; }
 .task-note { margin: 6px 0 0; color: var(--ink-muted); font-size: 13px; white-space: pre-wrap; }
 .task-moves { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .task-moves button { padding: 4px 10px; font-size: 13px; }
+.task-parent { margin: 0 0 2px; color: var(--ink-muted); font-size: 12px; }
+.form-note { margin: 0; font-size: 12px; }
+.edit-form select { width: 100%; min-width: 0; background: var(--surface-raised); }
 .task .edit-form { grid-template-columns: minmax(0, 1fr); }
-.task .edit-form select { width: 100%; min-width: 0; background: var(--surface-raised); }
 .task .edit[open] { padding: 8px 0 0; background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+
+/* WBS・ガントチャート */
+main.wide { max-width: 1400px; }
+.wbs-gap { height: 16px; }
+.task-add.long { grid-template-columns: minmax(0, 1fr) 200px 130px 160px 160px auto; }
+.wbs-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.wbs {
+  --day-w: 26px;
+  --row-h: 36px;
+  --w-no: 56px; --w-name: 240px; --w-who: 72px; --w-start: 92px; --w-end: 92px; --w-pct: 64px;
+  --w-left: calc(var(--w-no) + var(--w-name) + var(--w-who) + var(--w-start) + var(--w-end) + var(--w-pct));
+  width: calc(var(--w-left) + var(--days) * var(--day-w));
+  table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px;
+}
+.wbs th, .wbs td { height: var(--row-h); padding: 0 8px; background: var(--surface-raised); border-bottom: 1px solid var(--line); text-align: left; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wbs th { color: var(--ink-muted); font-size: 12px; }
+.wbs tbody tr:last-child td { border-bottom: 0; }
+/* 表の列は固定し、右のチャートだけ横に流す */
+.c-no, .c-name, .c-who, .c-start, .c-end, .c-pct { position: sticky; z-index: 2; }
+.c-no { left: 0; width: var(--w-no); font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
+.c-name { left: var(--w-no); width: var(--w-name); }
+.c-who { left: calc(var(--w-no) + var(--w-name)); width: var(--w-who); }
+.c-start { left: calc(var(--w-no) + var(--w-name) + var(--w-who)); width: var(--w-start); }
+.c-end { left: calc(var(--w-no) + var(--w-name) + var(--w-who) + var(--w-start)); width: var(--w-end); }
+.c-pct { left: calc(var(--w-left) - var(--w-pct)); width: var(--w-pct); border-right: 1px solid var(--line-strong); }
+.wbs .c-start, .wbs .c-end { font-family: var(--font-mono); font-size: 12px; }
+.wbs td.c-pct { font-size: 12px; }
+.wbs td.c-end.overdue { color: var(--error-ink); }
+.c-name a { display: block; overflow: hidden; text-overflow: ellipsis; color: inherit; text-decoration: none; }
+.c-name a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.c-name a:focus-visible { outline-offset: -2px; }
+.wbs .tag { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.wbs tr.parent td { font-weight: 500; }
+.wbs tr.selected td { background: color-mix(in srgb, var(--accent-mark) 14%, var(--surface-raised)); }
+.wbs .tl-head, .wbs .tl { width: calc(var(--days) * var(--day-w)); padding: 0; }
+.tl-months, .tl-days { display: flex; }
+.tl-months span { flex: none; padding-left: 4px; overflow: hidden; border-left: 1px solid var(--line); font-size: 12px; line-height: 18px; color: var(--ink); }
+.tl-months span:first-child { border-left: 0; }
+.tl-days span { flex: 1 1 0; min-width: 0; font-family: var(--font-mono); font-size: 11px; line-height: 18px; text-align: center; color: var(--ink); }
+.tl-days .weekend { color: var(--ink-muted); }
+.tl-days .today { background: var(--accent); color: var(--on-accent); font-weight: 500; border-radius: 4px; }
+.wbs .tl {
+  position: relative;
+  /* 月曜はじまりの7日周期で、土日の網掛けと週の区切りを描く */
+  background-image:
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to right, transparent calc(var(--day-w) * 5), color-mix(in srgb, var(--ink) 6%, transparent) calc(var(--day-w) * 5));
+  background-size: calc(var(--day-w) * 7) 100%;
+}
+.tl-today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent-mark); }
+.bar { --c: var(--line-strong); position: absolute; top: 9px; height: 18px; border-radius: 4px; }
+.bar.todo { background: color-mix(in srgb, var(--c) 18%, transparent); border: 1.5px solid var(--c); }
+.bar.doing { background: var(--c); }
+.bar.done { background: color-mix(in srgb, var(--c) 40%, transparent); }
+.bar.late { border: 2px solid var(--error-ink); }
+.bar.summary { top: 13px; height: 10px; background: color-mix(in srgb, var(--ink) 22%, transparent); overflow: hidden; }
+.bar.summary.late { top: 11px; height: 14px; }
+.bar.summary i { display: block; height: 100%; background: var(--ink); }
+.bar-legend { flex-wrap: wrap; }
+.bar-legend li { display: inline-flex; align-items: center; gap: 5px; }
+.bar-legend .bar { position: static; display: inline-block; flex: none; width: 24px; height: 12px; }
+.bar-legend .bar.summary { height: 8px; }
+.wbs-note { margin: 8px 0 0; color: var(--ink-muted); font-size: 12px; }
+#detail .task-moves { margin: 0 0 10px; }
+.detail-links { display: flex; gap: 14px; font-size: 13px; }
+.detail-links a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+#add { scroll-margin-top: 12px; }
+@media (max-width: 1100px) {
+  .task-add.long { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .task-add.long .title { grid-column: 1 / -1; }
+  .task-add.long button { justify-self: start; }
+  /* 狭い画面では番号とタスク名だけ固定し、チャートの幅を確保する */
+  .wbs { --w-no: 60px; --w-name: 132px; --w-who: 0px; --w-start: 0px; --w-end: 0px; --w-pct: 64px; }
+  .c-who, .c-start, .c-end { display: none; }
+  .c-pct { position: static; border-right: 0; }
+  .c-name { border-right: 1px solid var(--line-strong); }
+}
 @media (max-width: 800px) {
   .board { grid-template-columns: minmax(0, 1fr); }
-  .task-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .task-add, .task-add.long { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .task-add .title { grid-column: 1 / -1; }
   .task-add button { justify-self: start; }
 }

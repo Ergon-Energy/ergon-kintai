@@ -3,10 +3,12 @@ import { addTask } from "../actions";
 import { AppHeader } from "@/components/AppHeader";
 import { ResultFlash } from "@/components/ResultFlash";
 import { TaskCard } from "@/components/TaskCard";
+import { MemberOptions } from "@/components/TaskControls";
 import { getMembers } from "@/lib/attendance";
 import { memberVars } from "@/lib/colors";
-import { DONE_VISIBLE_DAYS, TASK_STATUSES, getTasks, sortTasks, taskStats } from "@/lib/tasks";
+import { DONE_VISIBLE_DAYS, TASK_STATUSES, boardTasks, getTasks, sortTasks, taskStats } from "@/lib/tasks";
 import { dayKey, periodRange } from "@/lib/time";
+import { buildWbs, leafTasks } from "@/lib/wbs";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +22,12 @@ export default async function Page({
   const today = dayKey(now);
   const weekStart = periodRange("week", now).fromDate;
 
-  const [members, allTasks] = await Promise.all([getMembers(), getTasks(now)]);
+  const [members, allTasks] = await Promise.all([getMembers(), getTasks()]);
+  const rows = buildWbs(allTasks);
+  const leaves = leafTasks(allTasks);
   const filter = members.some((m) => m.id === sp.member) ? sp.member! : "";
-  const tasks = sortTasks(filter ? allTasks.filter((t) => t.assignee_id === filter) : allTasks);
+  const onBoard = boardTasks(allTasks, now);
+  const tasks = sortTasks(filter ? onBoard.filter((t) => t.assignee_id === filter) : onBoard);
 
   return (
     <main>
@@ -30,7 +35,7 @@ export default async function Page({
 
       <section className="now-strip" aria-label="メンバーごとのタスク状況">
         {members.map((m) => {
-          const s = taskStats(allTasks.filter((t) => t.assignee_id === m.id), today, weekStart);
+          const s = taskStats(leaves.filter((t) => t.assignee_id === m.id), today, weekStart);
           return (
             <div key={m.id} className="now-item" style={memberVars(members, m.id)}>
               <span className="badge" aria-hidden="true">
@@ -60,12 +65,7 @@ export default async function Page({
           <label>
             担当
             <select name="assignee" defaultValue={filter}>
-              <option value="">未担当</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
+              <MemberOptions members={members} />
             </select>
           </label>
           <label>
@@ -105,7 +105,7 @@ export default async function Page({
               ) : (
                 <ul className="task-list">
                   {column.map((t) => (
-                    <TaskCard key={t.id} task={t} members={members} filter={filter} today={today} />
+                    <TaskCard key={t.id} task={t} rows={rows} members={members} filter={filter} today={today} />
                   ))}
                 </ul>
               )}

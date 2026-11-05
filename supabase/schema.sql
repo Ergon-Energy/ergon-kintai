@@ -55,6 +55,12 @@ create table if not exists tasks (
 
 create index if not exists tasks_status on tasks (status);
 
+-- WBS とガントチャート用。親を消すと配下のタスクも消える
+alter table tasks add column if not exists parent_id  uuid references tasks(id) on delete cascade;
+alter table tasks add column if not exists start_date date;
+
+create index if not exists tasks_parent_id on tasks (parent_id);
+
 -- RLS を有効にし、ポリシーは作らない
 -- （アプリはサーバー側から service_role キーで接続するため、anon キーからは読み書き不可になる）
 alter table members       enable row level security;
