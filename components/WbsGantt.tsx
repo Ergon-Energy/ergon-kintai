@@ -102,8 +102,8 @@ export function WbsGantt({
                     </span>
                   )}
                 </td>
-                <td className="c-start">{r.start ? fmtDay(r.start) : "—"}</td>
-                <td className={`c-end${overdue ? " overdue" : ""}`}>{r.end ? fmtDay(r.end) : "—"}</td>
+                <td className={`c-start${r.startEstimated ? " est" : ""}`}>{r.start ? fmtDay(r.start) : "—"}</td>
+                <td className={`c-end${overdue ? " overdue" : ""}${r.endEstimated ? " est" : ""}`}>{r.end ? fmtDay(r.end) : "—"}</td>
                 <td className="c-pct">{progress}</td>
                 <td className="tl">
                   {todayMark}

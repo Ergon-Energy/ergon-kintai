@@ -69,6 +69,10 @@ export default async function Page({
             </select>
           </label>
           <label>
+            開始
+            <input type="date" name="start" />
+          </label>
+          <label>
             期限
             <input type="date" name="due" />
           </label>
