@@ -5,6 +5,7 @@
 - **Slack**：`/kintai in` / `out` / `log` / `status`
 - **カレンダー（トップ）**：2人の勤務を月カレンダーで表示。日付を押すとその日の記録を表示・編集・削除
 - **勤怠状況（`/status`）**：2人の稼働状況、期間合計、日ごとの棒グラフ、やったことのタイムライン、画面からの打刻、CSV書き出し
+- **タスク（`/tasks`）**：未着手・進行中・完了のボードで進捗を管理。担当と期限を付けられ、期限切れは赤で表示。担当で絞り込み可能。完了の列は直近30日分を表示
 - **デザイン**：Ergon のデザインシステムの配色・書体に準拠。OS の設定に合わせて Carbon（ダーク）と Paper（ライト）が切り替わる
 - **構成**：Next.js 15（App Router）＋ Supabase（Postgres）、Vercel 想定。外部ライブラリは supabase-js のみ
 
@@ -33,6 +34,8 @@
 1. [supabase.com](https://supabase.com) でプロジェクトを作成（無料枠で十分）
 2. SQL Editor に `supabase/schema.sql` を貼って実行
 3. Project Settings → API から **Project URL** と **service_role キー** を控える
+
+すでに使っている環境でテーブルが増えたときも、`supabase/schema.sql` をもう一度実行すれば足りない分だけ作られます（既存のデータはそのまま）。
 
 ### 2. Vercel にデプロイ
 
@@ -68,11 +71,13 @@ Slack からローカルを叩くときは `ngrok http 3000` などで公開URL�
 app/
   page.tsx                  カレンダー（トップ）
   status/page.tsx           勤怠状況（期間：今週/先週/今月/先月）
-  actions.ts                画面からの打刻（Server Action）
+  tasks/page.tsx            タスクのボード
+  actions.ts                画面からの打刻・編集・タスク操作（Server Action）
   api/slack/command/route.ts  /kintai の受け口（署名検証あり）
   api/export/route.ts       CSV書き出し（Excel向けBOM付き）
 lib/
   attendance.ts             打刻・取得・集計
+  tasks.ts                  タスクの取得・更新・並び順・集計
   command.ts                /kintai のテキスト解釈
   time.ts                   日本時間の日付計算
   slack.ts                  Slack署名検証
@@ -80,6 +85,7 @@ components/DailyChart.tsx   日ごとの棒グラフ（SVG）
 components/AppHeader.tsx    画面の切り替え
 components/Timeline.tsx     やったことのタイムライン
 components/DayRecords.tsx   カレンダーで選んだ日の記録（編集・削除）
+components/TaskCard.tsx     タスクのカード（状態の移動・編集・削除）
 middleware.ts               画面とCSVの Basic 認証（/api/slack は除外）
 supabase/schema.sql         テーブル定義
 ```

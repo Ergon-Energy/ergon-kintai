@@ -41,8 +41,23 @@ create table if not exists activity_logs (
 
 create index if not exists activity_logs_logged_at on activity_logs (logged_at);
 
+-- タスク（担当のメンバーが消えたら未担当に戻す）
+create table if not exists tasks (
+  id           uuid primary key default gen_random_uuid(),
+  title        text not null,
+  note         text,
+  assignee_id  uuid references members(id) on delete set null,
+  status       text not null default 'todo' check (status in ('todo', 'doing', 'done')),
+  due_date     date,
+  completed_at timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists tasks_status on tasks (status);
+
 -- RLS を有効にし、ポリシーは作らない
 -- （アプリはサーバー側から service_role キーで接続するため、anon キーからは読み書き不可になる）
 alter table members       enable row level security;
 alter table work_sessions enable row level security;
 alter table activity_logs enable row level security;
+alter table tasks         enable row level security;

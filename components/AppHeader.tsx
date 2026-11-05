@@ -3,6 +3,7 @@ import Link from "next/link";
 const PAGES = [
   { id: "calendar", href: "/", label: "カレンダー" },
   { id: "status", href: "/status", label: "勤怠状況" },
+  { id: "tasks", href: "/tasks", label: "タスク" },
 ] as const;
 
 export function AppHeader({ current }: { current: (typeof PAGES)[number]["id"] }) {

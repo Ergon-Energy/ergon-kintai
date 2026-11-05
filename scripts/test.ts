@@ -4,6 +4,7 @@ import { createHmac } from "node:crypto";
 import { parseCommand } from "../lib/command";
 import { findOverlap, segmentsOnDay, summarize, type Member, type Session } from "../lib/attendance";
 import { fetchSlackRealName, verifySlackRequest } from "../lib/slack";
+import { dueLabel, isOverdue, parseDueDate, sortTasks, taskStats, type Task } from "../lib/tasks";
 import { addMonths, calendarSpan, dayKey, fmtDuration, isMonthKey, monthSpan, parseClock, parseLocalInput, periodRange, splitByDay, toLocalInput } from "../lib/time";
 
 const jst = (s: string) => new Date(`${s}+09:00`);
@@ -170,6 +171,70 @@ t("Slackの氏名取得", async () => {
     console.warn = quiet;
     delete process.env.SLACK_BOT_TOKEN;
   }
+});
+
+const task = (over: Partial<Task>): Task => ({
+  id: "t",
+  title: "t",
+  note: null,
+  assignee_id: null,
+  status: "todo",
+  due_date: null,
+  completed_at: null,
+  created_at: "2026-11-01T00:00:00Z",
+  ...over,
+});
+
+t("タスクの期限の解釈", () => {
+  assert.equal(parseDueDate(""), null);
+  assert.equal(parseDueDate("2026-11-30"), "2026-11-30");
+  assert.throws(() => parseDueDate("2026-02-30"));
+  assert.throws(() => parseDueDate("来週"));
+});
+
+t("タスクの期限の表示と期限切れ", () => {
+  const today = "2026-11-05";
+  assert.equal(dueLabel(task({}), today), null);
+  assert.equal(dueLabel(task({ due_date: "2026-11-05" }), today), "今日まで");
+  assert.equal(dueLabel(task({ due_date: "2026-11-06" }), today), "明日まで");
+  assert.equal(dueLabel(task({ due_date: "2026-11-03" }), today), "11/3(火)まで（2日超過）");
+  assert.equal(dueLabel(task({ due_date: "2026-11-03", status: "done" }), today), "11/3(火)まで");
+  assert.equal(isOverdue(task({ due_date: "2026-11-04" }), today), true);
+  assert.equal(isOverdue(task({ due_date: "2026-11-05" }), today), false);
+  assert.equal(isOverdue(task({ due_date: "2026-11-04", status: "done" }), today), false);
+});
+
+t("タスクの並び順", () => {
+  const ids = (ts: Task[]) => sortTasks(ts).map((x) => x.id);
+  assert.deepEqual(
+    ids([
+      task({ id: "期限なし" }),
+      task({ id: "遅い", due_date: "2026-12-01" }),
+      task({ id: "早い", due_date: "2026-11-10" }),
+    ]),
+    ["早い", "遅い", "期限なし"],
+  );
+  assert.deepEqual(
+    ids([
+      task({ id: "古い", status: "done", completed_at: "2026-11-01T00:00:00Z" }),
+      task({ id: "新しい", status: "done", completed_at: "2026-11-04T00:00:00Z" }),
+    ]),
+    ["新しい", "古い"],
+  );
+});
+
+t("タスクの集計", () => {
+  const s = taskStats(
+    [
+      task({ status: "todo", due_date: "2026-11-01" }),
+      task({ status: "doing" }),
+      task({ status: "done", completed_at: "2026-11-04T00:00:00Z" }),
+      task({ status: "done", completed_at: "2026-10-20T00:00:00Z" }),
+    ],
+    "2026-11-05",
+    jst("2026-11-02T00:00:00"),
+  );
+  assert.deepEqual(s, { open: 2, overdue: 1, doneThisWeek: 1 });
 });
 
 Promise.all(pending)
