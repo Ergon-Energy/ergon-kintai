@@ -228,9 +228,29 @@ t("WBSの親は配下から期間と進捗を集計する", () => {
   assert.equal(isRowOverdue(a, "2026-11-20"), false);
 });
 
-t("WBSの片方だけの日付は1日のバーになる", () => {
-  const [only] = buildWbs([task({ due_date: "2026-11-10" })]);
-  assert.deepEqual([only.start, only.end], ["2026-11-10", "2026-11-10"]);
+t("WBSの未入力の日付を補って期間にする", () => {
+  const today = "2026-11-05";
+  const period = (over: Partial<Task>) => {
+    const [r] = buildWbs([task(over)], today);
+    return [r.start, r.end, r.startEstimated, r.endEstimated];
+  };
+  // 両方あり：入力のまま
+  assert.deepEqual(period({ start_date: "2026-11-02", due_date: "2026-11-09" }), ["2026-11-02", "2026-11-09", false, false]);
+  // 期限だけ：作成日から期限まで（作成は 11/1 の 9:00 JST）
+  assert.deepEqual(period({ due_date: "2026-11-10" }), ["2026-11-01", "2026-11-10", true, false]);
+  // 作成より前の期限：開始が期限を追い越さない
+  assert.deepEqual(period({ due_date: "2026-10-20" }), ["2026-10-20", "2026-10-20", true, false]);
+  // 開始だけ：今日まで
+  assert.deepEqual(period({ start_date: "2026-11-02" }), ["2026-11-02", "2026-11-05", false, true]);
+  // 開始だけで完了済み：完了日まで
+  assert.deepEqual(
+    period({ start_date: "2026-11-02", status: "done", completed_at: "2026-11-03T03:00:00Z" }),
+    ["2026-11-02", "2026-11-03", false, true],
+  );
+  // 開始が未来：開始日だけ
+  assert.deepEqual(period({ start_date: "2026-11-20" }), ["2026-11-20", "2026-11-20", false, true]);
+  // どちらもなし：バーを出さない
+  assert.deepEqual(period({}), [null, null, false, false]);
 });
 
 t("親に選べるタスクは自分と配下を除く", () => {

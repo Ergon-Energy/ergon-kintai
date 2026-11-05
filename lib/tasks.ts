@@ -159,6 +159,13 @@ export async function setTaskStatus(id: string, status: string, now: Date = new 
       .select(),
   ) as Task[];
   if (rows.length === 0) throw new AttendanceError(GONE);
+
+  // 開始日が未入力なら、開始した日を記録する（期限を過ぎていれば開始が期限より後になるので入れない）
+  const { start_date, due_date } = rows[0];
+  const today = dayKey(now);
+  if (status === "doing" && !start_date && (!due_date || due_date >= today)) {
+    check(await db().from("tasks").update({ start_date: today }).eq("id", id));
+  }
 }
 
 /** 配下のタスクも一緒に消える（DBの on delete cascade） */

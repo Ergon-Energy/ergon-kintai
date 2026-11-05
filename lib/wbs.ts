@@ -1,5 +1,5 @@
 import type { Task } from "./tasks";
-import { addDays, diffDays, weekday } from "./time";
+import { addDays, dayKey, diffDays, weekday } from "./time";
 
 export type WbsRow = {
   task: Task;
@@ -7,17 +7,34 @@ export type WbsRow = {
   no: string;
   depth: number;
   hasChildren: boolean;
-  /** 子があれば配下の最小の開始、なければ自分の開始（なければ期限） */
+  /** 子があれば配下の最小の開始。なければ自分の開始（未入力は作成日で補う） */
   start: string | null;
-  /** 子があれば配下の最大の期限、なければ自分の期限（なければ開始） */
+  /** 子があれば配下の最大の期限。なければ自分の期限（未入力は完了日か今日で補う） */
   end: string | null;
+  /** start / end が入力値ではなく、補った値のとき true */
+  startEstimated: boolean;
+  endEstimated: boolean;
   /** 配下の末端タスクの数と、そのうち完了の数（末端なら 1 と 0/1） */
   total: number;
   done: number;
 };
 
+/**
+ * 末端タスクの期間。片方の日付だけでも期間として見えるように、未入力の側を補う。
+ * どちらも未入力なら、予定が決まっていないのでバーを出さない。
+ */
+function leafPeriod(task: Task, today: string) {
+  const { start_date: start, due_date: due } = task;
+  if (!start && !due) return {};
+  const created = dayKey(new Date(task.created_at));
+  const finished = task.completed_at ? dayKey(new Date(task.completed_at)) : today;
+  const from = start ?? (created < due! ? created : due!);
+  const to = due ?? (finished > from ? finished : from);
+  return { start: from, end: to, startEstimated: !start, endEstimated: !due };
+}
+
 /** タスクを親子の順に並べ、番号と配下の集計を付ける */
-export function buildWbs(tasks: Task[]): WbsRow[] {
+export function buildWbs(tasks: Task[], today: string = dayKey(new Date())): WbsRow[] {
   const ids = new Set(tasks.map((t) => t.id));
   const kids = new Map<string | null, Task[]>();
   for (const t of tasks) {
@@ -36,13 +53,14 @@ export function buildWbs(tasks: Task[]): WbsRow[] {
       hasChildren: children.length > 0,
       start: null,
       end: null,
+      startEstimated: false,
+      endEstimated: false,
       total: 0,
       done: 0,
     };
     rows.push(row);
     if (children.length === 0) {
-      row.start = task.start_date ?? task.due_date;
-      row.end = task.due_date ?? task.start_date;
+      Object.assign(row, leafPeriod(task, today));
       row.total = 1;
       row.done = task.status === "done" ? 1 : 0;
       return row;

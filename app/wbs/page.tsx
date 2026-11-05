@@ -19,7 +19,7 @@ export default async function Page({
   const sp = await searchParams;
   const today = dayKey(new Date());
   const [members, tasks] = await Promise.all([getMembers(), getTasks()]);
-  const rows = buildWbs(tasks);
+  const rows = buildWbs(tasks, today);
   const { days, clipped } = ganttRange(rows, today);
   const editing = rows.find((r) => r.task.id === sp.edit) ?? null;
   const addParent = rows.some((r) => r.task.id === sp.parent) ? sp.parent! : "";
@@ -48,7 +48,7 @@ export default async function Page({
           <>
             <WbsGantt rows={rows} days={days} members={members} today={today} selected={editing?.task.id ?? null} />
             <p className="wbs-note">
-              タスク名を押すと編集できます。
+              タスク名を押すと編集できます。薄い色の日付は未入力のため、作成日・完了日・今日で補っています。
               {clipped && " 期間が長いため、表示は6か月分までです。"}
             </p>
           </>
